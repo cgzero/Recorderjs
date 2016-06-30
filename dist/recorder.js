@@ -1,3 +1,7 @@
+// 源码的采样率是44100，声道是双声道
+// 这里将采样率压缩到11025，并且只能使用单声道
+// 目的是为了降低语音的体积，而且百度语音api只能识别8k/16k，单声道的语音
+// 参考：http://stackoverflow.com/a/17764835/6523243
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Recorder = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
@@ -100,7 +104,10 @@ var Recorder = exports.Recorder = (function () {
             };
 
             function init(config) {
-                sampleRate = config.sampleRate;
+                // sampleRate = config.sampleRate;
+                // modified by cgzero
+                // 采样率设为11025Hz
+                sampleRate = 11025;
                 numChannels = config.numChannels;
                 initBuffers();
             }
@@ -159,18 +166,34 @@ var Recorder = exports.Recorder = (function () {
                 return result;
             }
 
+            // function interleave(inputL, inputR) {
+            //     var length = inputL.length + inputR.length;
+            //     var result = new Float32Array(length);
+
+            //     var index = 0,
+            //         inputIndex = 0;
+
+            //     while (index < length) {
+            //         result[index++] = inputL[inputIndex];
+            //         result[index++] = inputR[inputIndex];
+            //         inputIndex++;
+            //     }
+            //     return result;
+            // }
+            // modified by cgzero
+            // 为了使采样率变为11025Hz，采用间隔采样的方法
             function interleave(inputL, inputR) {
-                var length = inputL.length + inputR.length;
+                var length = inputL.length / 4;
                 var result = new Float32Array(length);
 
                 var index = 0,
-                    inputIndex = 0;
+                  inputIndex = 0;
 
                 while (index < length) {
-                    result[index++] = inputL[inputIndex];
-                    result[index++] = inputR[inputIndex];
-                    inputIndex++;
+                    result[index++] = 0.25 * (inputL[inputIndex++] + inputL[inputIndex++] +
+                                              inputL[inputIndex++] + inputL[inputIndex++]);
                 }
+
                 return result;
             }
 
@@ -204,7 +227,9 @@ var Recorder = exports.Recorder = (function () {
                 /* sample format (raw) */
                 view.setUint16(20, 1, true);
                 /* channel count */
-                view.setUint16(22, numChannels, true);
+                // view.setUint16(22, numChannels, true);
+                // modified by cgzero 强制将通道设成1
+                view.setUint16(22, 1, true);
                 /* sample rate */
                 view.setUint32(24, sampleRate, true);
                 /* byte rate (sample rate * block align) */
